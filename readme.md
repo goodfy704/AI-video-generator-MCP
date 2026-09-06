@@ -58,15 +58,13 @@ uv run python mcp/server.py
 
 In LM studio you should see connected status with tools available
 
-photo goes here
-
 Go to LM studio settings -> Library. Change model install folder to your bigger ssd
 
-photo goes here
+https://imgur.com/a/uZWjYU0
 
 Go to LM studio settings -> Explore -> search for qwen 3.5 27B GGUF -> download unsloth version
 
-photo goes here
+https://imgur.com/a/5F58WzX
 
 TEST if LLM is working
 
