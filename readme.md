@@ -24,7 +24,7 @@ This allows the project to evolve from a local GPU-based prototype into a remote
 
 ---
 
-# Project setup
+# Project Setup
 
 Follow these steps to set up the project locally and test the MCP server with a local LLM.
 
@@ -32,164 +32,166 @@ Follow these steps to set up the project locally and test the MCP server with a 
 
 You should have **Python 3.14.7** installed.
 
-You can download Python using the Python Install Manager from the official Python website:
-
-https://www.python.org/downloads/
+Download Python using the Python Install Manager from the official Python website:
+👉 https://www.python.org/downloads/
 
 Verify the installed version:
 
 ```powershell
 py --version
+```
 
 Expected output:
 
+```
 Python 3.14.7
-2. Install LM Studio
+```
+
+## 2. Install LM Studio
 
 Download and install LM Studio:
+👉 https://lmstudio.ai/
 
-https://lmstudio.ai/
-
-3. Clone the repository
+## 3. Clone the Repository
 
 Clone this repository to your local machine:
 
+```powershell
 git clone <repository-url>
+```
 
-Then open the cloned repository folder with your terminal.
+Then open the cloned repository folder with your terminal, for example:
 
-For example:
-
+```powershell
 cd E:\DARBS\AI-video-generator
-4. Create the local Python environment
+```
+
+## 4. Create the Local Python Environment
 
 From the repository root, create a local virtual environment:
 
+```powershell
 py -m venv .venv
+```
 
 Activate it:
 
+```powershell
 .venv\Scripts\Activate.ps1
+```
 
-You should now see (.venv) at the beginning of your terminal prompt.
+You should now see `(.venv)` at the beginning of your terminal prompt.
 
-5. Configure the MCP server in LM Studio
+## 5. Configure the MCP Server in LM Studio
 
-Open the LM Studio MCP configuration and make sure the cwd / Working directory points to the folder where you cloned this repository.
+Open the LM Studio MCP configuration and make sure the **cwd / Working directory** points to the folder where you cloned this repository.
 
 For example:
 
+```
 E:\DARBS\AI-video-generator
+```
 
 Each developer should use their own local repository path.
 
-Important: The working directory should be the repository root, not the mcp folder.
+> **Important:** The working directory should be the repository root, **not** the `mcp` folder.
+>
+> ✅ `E:\DARBS\AI-video-generator`
+> ❌ `E:\DARBS\AI-video-generator\mcp`
 
-Example:
-
-E:\DARBS\AI-video-generator
-
-Not:
-
-E:\DARBS\AI-video-generator\mcp
-6. Install project dependencies
+## 6. Install Project Dependencies
 
 From the repository root, run:
 
+```powershell
 uv sync
+```
 
-This will create/update the local environment and install the project dependencies specified in pyproject.toml.
+This will create/update the local environment and install the project dependencies specified in `pyproject.toml`.
 
 Verify the installed packages:
 
+```powershell
 uv pip list
+```
 
 Verify FastMCP:
 
+```powershell
 uv run python -c "import fastmcp; print(fastmcp.__version__)"
-7. Configure the MCP connection in LM Studio
+```
+
+## 7. Configure the MCP Connection in LM Studio
 
 Go to:
 
-LM Studio → Settings → Connected Apps → Custom MCP
+**LM Studio → Settings → Connected Apps → Custom MCP**
 
-Create/configure the MCP connection as shown in the screenshot below.
+Create/configure the MCP connection using your own cloned repository folder as the working directory.
 
-Use your own cloned repository folder as the Working directory.
+| Setting | Value |
+|---|---|
+| **Name** | `AI Video generator MCP` |
+| **Connection** | On this computer |
+| **Command** | `uv run python mcp/server.py` |
+| **Working directory** | `<your local AI-video-generator repository folder>`, e.g. `E:\DARBS\AI-video-generator` |
 
-The important settings are:
+## 8. Start the MCP Server
 
-Name:
-AI Video generator MCP
+From VS Code's terminal, while in the repository root, run:
 
-Connection:
-On this computer
-
-Command:
+```powershell
 uv run python mcp/server.py
+```
 
-Working directory:
-<your local AI-video-generator repository folder>
+The server uses the MCP stdio transport, so the terminal may appear to be waiting without displaying anything — **this is expected.**
 
-For example:
+When LM Studio connects successfully, you should see the MCP connection as connected, along with the available tools:
 
-E:\DARBS\AI-video-generator
-8. Start the MCP server
+- `create_video`
+- `get_video_status`
 
-From VS Code's terminal, while you are in the repository root, run:
+> **Note:** When testing the connection through LM Studio, LM Studio can start the MCP server itself using the configured command. If you are manually running the server from VS Code, make sure you understand whether LM Studio is also configured to launch its own instance, to avoid confusion.
 
-uv run python mcp/server.py
-
-The server uses the MCP stdio transport, so the terminal may appear to be waiting without displaying anything. This is expected.
-
-When LM Studio connects successfully, you should see the MCP connection as connected and the available tools:
-
-create_video
-get_video_status
-
-Note: When testing the connection through LM Studio, LM Studio can start the MCP server itself using the configured command. If you are manually running the server from VS Code, make sure you understand whether LM Studio is also configured to launch its own instance to avoid confusion.
-
-9. Change the LM Studio model installation folder
+## 9. Change the LM Studio Model Installation Folder
 
 Large LLM files can require significant disk space.
 
 Go to:
 
-LM Studio → Settings → Library
+**LM Studio → Settings → Library**
 
-Change the model installation folder to a drive with sufficient free space, preferably your larger SSD.
+Change the model installation folder to a drive with sufficient free space — preferably your larger SSD.
 
-10. Download Qwen3.5-27B
+## 10. Download Qwen 3.5 27B
 
-In LM Studio, go to:
+In LM Studio, go to **Explore** and search for:
 
-Explore
-
-Search for:
-
+```
 Qwen 3.5 27B GGUF
+```
 
-Download the Unsloth version.
+Download the **Unsloth** version. After the download finishes, load the model in LM Studio.
 
-After the download finishes, load the model in LM Studio.
-
-11. Test if the LLM can use the MCP tool
+## 11. Test if the LLM Can Use the MCP Tool
 
 Open a new chat in LM Studio and enter:
 
+```
 Create a 10 second video of a futuristic city at night in 16:9.
+```
 
-The LLM should recognize that it needs to use the MCP tool:
-
-create_video()
+The LLM should recognize that it needs to use the MCP tool `create_video()`.
 
 The expected tool call should contain approximately:
 
+```json
 {
   "prompt": "a futuristic city at night",
   "duration": 10,
   "aspect_ratio": "16:9"
 }
+```
 
 # Architecture
 
