@@ -9,6 +9,7 @@ from video_mcp.video import (
     JobNotFoundError,
     JobNotReadyError,
     MockVideoBackend,
+    _describe,
 )
 
 
@@ -147,3 +148,45 @@ def test_job_cannot_be_cancelled_twice(backend, request_):
 def test_cancelling_an_unknown_job_is_an_error(backend):
     with pytest.raises(JobNotFoundError):
         backend.cancel("does-not-exist")
+
+
+def test_a_queued_job_can_be_cancelled_before_it_starts(backend, clock, request_):
+    job = backend.create(request_)
+    assert backend.status(job.job_id).status is JobStatus.QUEUED
+
+    cancelled = backend.cancel(job.job_id)
+    assert cancelled.status is JobStatus.CANCELLED
+
+    clock.advance(QUEUED_SECONDS + RUNNING_SECONDS)
+    assert backend.status(job.job_id).status is JobStatus.CANCELLED
+
+
+def test_a_zero_length_run_completes_as_soon_as_it_leaves_the_queue(clock, request_):
+    """AI_VIDEO_MOCK_RUNNING_SECONDS=0 is a supported evaluation setting."""
+    backend = MockVideoBackend(
+        clock=clock, queued_seconds=QUEUED_SECONDS, running_seconds=0
+    )
+    job = backend.create(request_)
+    assert backend.status(job.job_id).status is JobStatus.QUEUED
+
+    clock.advance(QUEUED_SECONDS)
+
+    completed = backend.status(job.job_id)
+    assert completed.status is JobStatus.COMPLETED
+    assert completed.progress == 100
+    assert backend.result(job.job_id).job_id == job.job_id
+
+
+def test_a_job_with_no_queue_or_run_time_is_completed_immediately(clock, request_):
+    backend = MockVideoBackend(clock=clock, queued_seconds=0, running_seconds=0)
+
+    assert backend.create(request_).status is JobStatus.COMPLETED
+
+
+def test_every_status_has_a_message_for_the_llm():
+    for status in JobStatus:
+        assert _describe(status, 50)
+
+
+def test_a_failed_job_is_described_as_failed():
+    assert _describe(JobStatus.FAILED, 0) == "Job failed."

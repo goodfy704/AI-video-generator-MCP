@@ -8,7 +8,11 @@
         "-m",
         "video_mcp.server"
       ],
-      "cwd": "C:/Users/Motion/Desktop/AI-video-generator-MCP-main"
+      "cwd": "C:/Users/Motion/Desktop/AI-video-generator-MCP",
+      "env": {
+        "AI_VIDEO_MOCK_QUEUED_SECONDS": "5",
+        "AI_VIDEO_MOCK_RUNNING_SECONDS": "120"
+      }
     }
   }
 }

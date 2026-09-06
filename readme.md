@@ -28,7 +28,7 @@ This allows the project to evolve from a local GPU-based prototype into a remote
 
 You should have installed python 3.14.7. You can download it from Python Install Manager here: https://www.python.org/downloads/
 
-Install LM studio: https://lmstudio.ai/
+Install Bionic (the LM Studio agent app): https://lmstudio.ai/
 
 Clone repository to your local machine
 
@@ -38,38 +38,87 @@ Open cloned repository folder with terminal and create local virtual environment
 py -m venv .venv
 ```
 
-Go to mcp.json and change cwd to your folder where you have the cloned repository
-
 Run from root folder:
 
 ```
 uv sync
 ```
 
-Go to LM studio settings -> Connected Apps -> Custom MCP. Fill the as shown in the screenshot except use your cloned repository folder in Working directory.
-
-https://imgur.com/a/ieP7waX
-
-From vsc run:
+Check that the server starts:
 
 ```
 uv run python -m video_mcp.server
 ```
 
-The server must be started as a module (`-m`) from the project root, not as a
-loose script path, so that `video_mcp` imports resolve.
+It should print the FastMCP banner and then sit waiting for input; stop it with
+Ctrl+C. This only proves the server starts. Do **not** leave it running: the
+transport is stdio, which means the MCP client launches its own copy of the
+server and talks to it over that process's stdin/stdout. A server started by
+hand in a terminal is not connected to anything.
 
-In LM studio you should see connected status with tools available
+## Connecting the server to Bionic
 
-Go to LM studio settings -> Library. Change model install folder to your bigger ssd
+Add an MCP server in Bionic's settings with these values:
+
+| Field | Value |
+| --- | --- |
+| Command | `uv run python -m video_mcp.server` |
+| Working directory | your cloned repository folder |
+| Env | `AI_VIDEO_MOCK_QUEUED_SECONDS` = `5`, `AI_VIDEO_MOCK_RUNNING_SECONDS` = `120` |
+
+The command must run the server as a module (`-m video_mcp.server`) from the
+project root. Pointing it at the script path instead (`python
+video_mcp/server.py`) puts the `video_mcp/` folder on `sys.path` rather than the
+project root, so `from video_mcp.models import ...` fails, the process dies on
+startup, and the client reports `MCP error -32000: Connection closed`.
+
+Bionic stores this as its own JSON (`servers: [...]`), not the `mcpServers`
+shape used by most other MCP clients. `mcp.json` in this repository is the
+portable version, for clients that read that format; adjust `cwd` to your own
+folder.
+
+The `env` values are optional and only control the mock timings. Without them
+the job finishes about 10 seconds after it is created, which is too fast to
+observe the `running` state.
+
+To confirm it worked, ask the model in a new chat:
+
+```
+List every tool you have available, with their exact names.
+```
+
+You should get `create_video`, `get_video_status`, `get_video_result` and
+`cancel_video`. If the tools are missing, check whether the server process is
+actually running while Bionic is open:
+
+```powershell
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*video_mcp*" }
+```
+
+Nothing listed means the client never started the server, or it crashed on
+startup.
+
+## Downloading a model
+
+Change the model install folder to your bigger ssd
 
 https://imgur.com/a/uZWjYU0
 
-Go to LM studio settings -> Explore -> search for qwen 3.5 27B GGUF -> download unsloth version
+Search for qwen 3.5 27B GGUF and download the unsloth version
 
 https://imgur.com/a/5F58WzX
 
-TEST if LLM is working
+(Both screenshots are from LM Studio; Bionic's model settings are equivalent.)
+
+Note on hardware: Qwen3.5 27B at Q4 is about 17 GB. On a card with less VRAM
+than that, most of the model runs on the CPU, and a single tool-calling turn
+can take minutes. Check that the GPU is actually being used:
+
+```powershell
+nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv -l 2
+```
+
+## Testing that the LLM can drive the tools
 
 In chat write:
 
@@ -79,16 +128,13 @@ Create a 10 second video of a futuristic city at night in 16:9.
 
 It should call the create_video() tool.
 
-The mock job does not finish instantly. It stays queued for ~2 seconds, runs for
-~8 seconds, and only then reports `completed`. A model that handles the workflow
-correctly will poll `get_video_status` and then call `get_video_result`.
+The mock job does not finish instantly. With the env values above it stays
+queued for 5 seconds and runs for 120, and only then reports `completed`. A
+model that handles the workflow correctly will poll `get_video_status` and then
+call `get_video_result`.
 
-The timings can be adjusted for an evaluation run:
-
-```
-AI_VIDEO_MOCK_QUEUED_SECONDS=0
-AI_VIDEO_MOCK_RUNNING_SECONDS=30
-```
+Raise `AI_VIDEO_MOCK_RUNNING_SECONDS` for scenarios that need a longer window,
+such as cancelling a job while it is still running.
 
 ## Running the tests
 
@@ -97,7 +143,6 @@ uv run pytest
 uv run ruff check .
 ```
 
-
 # Architecture
 
 The project will be developed in several stages.
@@ -105,7 +150,7 @@ The project will be developed in several stages.
 ### Current target architecture
 
 ```text
-                LM Studio
+                 Bionic
                     │
              Local LLM model
           ┌─────────┴─────────┐
@@ -138,7 +183,7 @@ The actual video generation is performed by a separate video-generation backend.
 
 ## Phase 1 — Local MVP / Proof of Concept
 
-**Status: Planned**
+**Status: In progress** — mock backend and LLM evaluation done; real video generation not connected yet.
 
 The first phase focuses entirely on proving that the concept works.
 
@@ -159,7 +204,7 @@ The video-generation workload will initially use the GPU and other resources ava
 ### Initial architecture
 
 ```text
-LM Studio
+Bionic
     │
     │ Local LLM
     ▼
@@ -210,7 +255,7 @@ The initial models to evaluate are:
 
 Additional models may be tested later.
 
-The models will be tested through **LM Studio** using the same MCP server and the same tool definitions.
+The models will be tested through **Bionic** using the same MCP server and the same tool definitions.
 
 The goal is to determine which model provides the best combination of:
 
@@ -418,7 +463,7 @@ Each phase should produce a working system before the next layer of complexity i
 * Python
 * FastMCP 4.x
 * MCP
-* LM Studio
+* Bionic (LM Studio agent app)
 * Qwen3.5 27B
 * gpt-oss-20B
 * Local GPU
@@ -463,8 +508,11 @@ AI-video-generator/
 │
 ├── tests/
 │   ├── conftest.py
-│   ├── test_server.py   tool layer, via an in-memory MCP client
-│   └── test_video.py    backend job lifecycle
+│   ├── test_backend_config.py  timings read from the environment
+│   ├── test_models.py          request validation and terminal states
+│   ├── test_server.py          tool layer, via an in-memory MCP client
+│   ├── test_stdio.py           real subprocess launch over stdio
+│   └── test_video.py           backend job lifecycle
 │
 ├── mcp.json
 ├── pyproject.toml
@@ -595,10 +643,10 @@ The current focus is:
 * [x] Implement `get_video_status()`, `get_video_result()`, `cancel_video()`
 * [x] Mock backend with real job state and error cases
 * [x] Test suite covering the backend and the tool layer
-* [ ] Connect MCP client to LM Studio
-* [ ] Test Qwen3.5 27B
-* [ ] Test gpt-oss-20B
-* [ ] Compare tool-calling performance
+* [x] Connect MCP client to Bionic
+* [x] Test Qwen3.5 27B
+* [x] Test gpt-oss-20B
+* [x] Compare tool-calling performance
 * [ ] Select initial LLM
 * [ ] Select video-generation backend
 * [ ] Connect real video generation
@@ -617,21 +665,53 @@ placeholder. What is real is the job lifecycle — `queued` → `running` →
 `completed`, with `cancelled` as a sticky terminal state — so the workflow and
 the error paths can be evaluated before a backend exists.
 
-## What to record during the LLM evaluation
+## LLM evaluation results
 
-Each model should be run through the same scenarios, and the results compared:
+Each model was run through the same scenarios against the same mock backend.
+Both **Qwen3.5 27B** and **gpt-oss-20B** passed all eight.
 
-| Scenario | What it tests |
-| --- | --- |
-| "Create a 10 second video of a futuristic city at night in 16:9." | tool selection, argument accuracy |
-| Ask for the video immediately after creating it | does the model poll, or give up on the error |
-| Ask for a 5 minute video | does it recover from the duration limit |
-| Ask about a job id that was never created | error recovery |
-| Create a video, then cancel it before it finishes | multi-step state handling |
+| # | Scenario | What it tests | Qwen3.5 27B | gpt-oss-20B |
+| --- | --- | --- | --- | --- |
+| 1 | "Create a 10 second video of a futuristic city at night in 16:9." | tool selection, argument accuracy | pass | pass |
+| 2 | Ask for the video immediately after creating it | does it poll, or give up on the error | pass | pass |
+| 3 | Ask for a 5 minute video | recovery from the duration limit | pass | pass |
+| 4 | Ask about a job id that was never created | recovery from an unknown id | pass | pass |
+| 5 | Create a video, then cancel it while it is running | multi-step state handling | pass | pass |
+| 6 | Create two videos, then ask about the second | keeping two job ids apart | pass | pass |
+| 7 | Ask for an unsupported aspect ratio | recovery from an invalid enum | pass | pass |
+| 8 | Cancel a job that has already completed | terminal-state error handling | pass | pass |
 
-For each model note: correct tool chosen, valid arguments, whether the job_id was
-carried between calls, recovery after an error, number of turns to completion,
-speed, and memory use.
+Because both models pass every scenario, capability is not what separates them.
+The useful comparison is in the softer measures, which should be recorded per
+run: wall time and number of turns to completion, whether the job_id was carried
+between calls without prompting, instruction adherence, memory use, and
+overclaiming.
+
+Overclaiming is worth watching closely. The tools return only `prompt`,
+`duration`, `aspect_ratio`, `video_path` and `message` — nothing describing the
+imagery. A model that reports what the video *looks like* has invented it. In
+testing, Qwen3.5 27B did exactly that on one run, describing snow-covered pines
+and a frozen stream that no tool ever returned, and dropped the mock/placeholder
+caveat it had correctly relayed on an earlier run.
+
+### Running the scenarios
+
+Use a fresh chat for each scenario, or a previous job id in the context will be
+what you are testing. Repeat each scenario about three times; tool calling is
+nondeterministic and a single pass proves little.
+
+Scenarios 2 and 5 need the mock job to still be running when you take your turn.
+Raise `AI_VIDEO_MOCK_RUNNING_SECONDS` to 600 for those, and for scenario 5 tell
+the model not to wait:
+
+```
+Create a 10 second video of a snowy forest. Do not wait for it to finish and do
+not check its status — just give me the job id.
+```
+
+Otherwise the model polls the job to completion inside its own turn, and there
+is never a running job left for you to cancel.
+
 
 ---
 

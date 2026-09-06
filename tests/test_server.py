@@ -154,3 +154,31 @@ def test_a_rejected_request_creates_no_job(backend):
         call("create_video", prompt="a city", duration=999)
 
     assert backend._jobs == {}
+
+
+# -- more than one job at a time -----------------------------------------
+
+
+def test_two_jobs_stay_independent(clock):
+    """The LLM has to keep two job_ids apart; the server must not merge them."""
+    first = call("create_video", prompt="a sunrise over mountains", aspect_ratio="9:16")
+    second = call("create_video", prompt="a city timelapse", duration=15)
+
+    assert first.job_id != second.job_id
+    assert first.aspect_ratio == "9:16"
+    assert second.duration == 15
+
+    clock.advance(QUEUED_SECONDS + 1.0)
+    call("cancel_video", job_id=first.job_id)
+
+    assert call("get_video_status", job_id=first.job_id).status == JobStatus.CANCELLED
+    assert call("get_video_status", job_id=second.job_id).status == JobStatus.RUNNING
+
+    clock.advance(RUNNING_SECONDS)
+    assert call("get_video_status", job_id=second.job_id).status == JobStatus.COMPLETED
+    result = call("get_video_result", job_id=second.job_id)
+    assert result.prompt == "a city timelapse"
+
+    # The cancelled job stays cancelled and still has no result.
+    with pytest.raises(ToolError):
+        call("get_video_result", job_id=first.job_id)
