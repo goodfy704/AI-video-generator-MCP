@@ -53,8 +53,11 @@ https://imgur.com/a/ieP7waX
 From vsc run:
 
 ```
-uv run python mcp/server.py
+uv run python -m video_mcp.server
 ```
+
+The server must be started as a module (`-m`) from the project root, not as a
+loose script path, so that `video_mcp` imports resolve.
 
 In LM studio you should see connected status with tools available
 
@@ -75,6 +78,24 @@ Create a 10 second video of a futuristic city at night in 16:9.
 ```
 
 It should call the create_video() tool.
+
+The mock job does not finish instantly. It stays queued for ~2 seconds, runs for
+~8 seconds, and only then reports `completed`. A model that handles the workflow
+correctly will poll `get_video_status` and then call `get_video_result`.
+
+The timings can be adjusted for an evaluation run:
+
+```
+AI_VIDEO_MOCK_QUEUED_SECONDS=0
+AI_VIDEO_MOCK_RUNNING_SECONDS=30
+```
+
+## Running the tests
+
+```
+uv run pytest
+uv run ruff check .
+```
 
 
 # Architecture
@@ -434,33 +455,31 @@ The project is expected to follow a structure similar to:
 ```text
 AI-video-generator/
 │
-├── mcp/
+├── video_mcp/
 │   ├── __init__.py
-│   ├── server.py
-│   │
-│   ├── tools/
-│   │   ├── __init__.py
-│   │   └── video.py
-│   │
-│   ├── services/
-│   │   └── video_service.py
-│   │
-│   └── models/
-│       └── video.py
+│   ├── server.py        MCP tool layer (thin)
+│   ├── video.py         video-generation backend
+│   └── models.py        request/response models
 │
 ├── tests/
+│   ├── conftest.py
+│   ├── test_server.py   tool layer, via an in-memory MCP client
+│   └── test_video.py    backend job lifecycle
 │
-├── Dockerfile
-├── compose.yaml
+├── mcp.json
 ├── pyproject.toml
 ├── uv.lock
-├── .dockerignore
 ├── .gitignore
-├── .env.example
-└── README.md
+└── readme.md
 ```
 
-Docker-related files may remain unused during Phase 1. They will become relevant during the deployment phase.
+The package is named `video_mcp`, not `mcp`. A local package called `mcp` shadows
+the installed `mcp` SDK that FastMCP depends on, which breaks both the server and
+the test suite when anything runs from the project root.
+
+Subpackages (`tools/`, `services/`, `models/`) can be introduced later if the
+flat modules grow. Docker-related files are not needed during Phase 1 and will
+become relevant during the deployment phase.
 
 ---
 
@@ -512,8 +531,7 @@ def create_video(
     prompt: str,
     duration: int = 5,
     aspect_ratio: str = "16:9",
-):
-    ...
+): ...
 ```
 
 The same logical tool should be usable regardless of whether the MCP server is accessed through stdio or Streamable HTTP.
@@ -568,12 +586,15 @@ There is no need to introduce Docker, HTTPS, Terraform, Ansible, Jenkins, or clo
 
 The current focus is:
 
-* [ ] Create project structure
-* [ ] Configure Python environment
-* [ ] Configure `pyproject.toml`
-* [ ] Install FastMCP 4.x
-* [ ] Create basic stdio MCP server
-* [ ] Implement `create_video()` mock tool
+* [x] Create project structure
+* [x] Configure Python environment
+* [x] Configure `pyproject.toml`
+* [x] Install FastMCP 4.x
+* [x] Create basic stdio MCP server
+* [x] Implement `create_video()` mock tool
+* [x] Implement `get_video_status()`, `get_video_result()`, `cancel_video()`
+* [x] Mock backend with real job state and error cases
+* [x] Test suite covering the backend and the tool layer
 * [ ] Connect MCP client to LM Studio
 * [ ] Test Qwen3.5 27B
 * [ ] Test gpt-oss-20B
@@ -581,6 +602,36 @@ The current focus is:
 * [ ] Select initial LLM
 * [ ] Select video-generation backend
 * [ ] Connect real video generation
+
+## Implemented tools
+
+| Tool | Returns | Errors |
+| --- | --- | --- |
+| `create_video(prompt, duration=5, aspect_ratio="16:9")` | queued job with `job_id` | invalid prompt, duration outside 1-60, unsupported aspect ratio |
+| `get_video_status(job_id)` | job status and progress | unknown `job_id` |
+| `get_video_result(job_id)` | video path for a completed job | unknown `job_id`, job not completed yet |
+| `cancel_video(job_id)` | cancelled job | unknown `job_id`, job already finished |
+
+Generation itself is still mocked: no file is written and `video_path` is a
+placeholder. What is real is the job lifecycle — `queued` → `running` →
+`completed`, with `cancelled` as a sticky terminal state — so the workflow and
+the error paths can be evaluated before a backend exists.
+
+## What to record during the LLM evaluation
+
+Each model should be run through the same scenarios, and the results compared:
+
+| Scenario | What it tests |
+| --- | --- |
+| "Create a 10 second video of a futuristic city at night in 16:9." | tool selection, argument accuracy |
+| Ask for the video immediately after creating it | does the model poll, or give up on the error |
+| Ask for a 5 minute video | does it recover from the duration limit |
+| Ask about a job id that was never created | error recovery |
+| Create a video, then cancel it before it finishes | multi-step state handling |
+
+For each model note: correct tool chosen, valid arguments, whether the job_id was
+carried between calls, recovery after an error, number of turns to completion,
+speed, and memory use.
 
 ---
 
