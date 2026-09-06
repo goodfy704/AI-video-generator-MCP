@@ -48,7 +48,7 @@ uv sync
 
 Go to LM studio settings -> Connected Apps -> Custom MCP. Fill the as shown in the screenshot except use your cloned repository folder in Working directory.
 
-![Alt text](https://imgur.com/a/ieP7waX)
+https://imgur.com/a/ieP7waX
 
 From vsc run:
 
