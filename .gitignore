@@ -1,0 +1,96 @@
+# ==============================
+# Python
+# ==============================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ==============================
+# Python tooling
+# ==============================
+
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ==============================
+# Environment / secrets
+# ==============================
+
+.env
+.env.*
+!.env.example
+
+# ==============================
+# IDE / Editor
+# ==============================
+
+.vscode/
+.idea/
+
+# ==============================
+# OS
+# ==============================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==============================
+# AI / ML model files
+# ==============================
+
+models/
+*.safetensors
+*.gguf
+*.gguf.part
+*.bin
+*.pt
+*.pth
+*.ckpt
+
+# ==============================
+# Generated videos / media
+# ==============================
+
+outputs/
+output/
+generated/
+videos/
+*.mp4
+*.mov
+*.webm
+*.avi
+*.mkv
+
+# ==============================
+# Logs
+# ==============================
+
+logs/
+*.log
+
+# ==============================
+# Temporary files
+# ==============================
+
+tmp/
+temp/
+*.tmp
+
+# ==============================
+# Build / distribution
+# ==============================
+
+build/
+dist/
+*.egg-info/

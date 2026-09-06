@@ -1,0 +1,572 @@
+# AI Video Generator
+
+An MCP-based AI video generation server built with **Python** and **FastMCP**.
+
+The project is being developed incrementally, starting with a local proof-of-concept and eventually evolving into a remotely accessible, containerized AI video-generation service.
+
+The initial goal is to evaluate local LLMs such as **Qwen3.5 27B** and **gpt-oss-20B** as agents capable of controlling an AI video-generation workflow through MCP tools.
+
+---
+
+## Project Goals
+
+The project aims to provide an MCP interface for AI video generation, allowing an LLM to perform actions such as:
+
+* Create a video from a prompt
+* Check video-generation status
+* Retrieve generated videos
+* Cancel video-generation jobs
+* Eventually work with different video-generation backends
+
+The MCP interface should remain independent from the underlying video-generation implementation.
+
+This allows the project to evolve from a local GPU-based prototype into a remotely deployed service without redesigning the MCP tools.
+
+---
+
+# Architecture
+
+The project will be developed in several stages.
+
+### Current target architecture
+
+```text
+                LM Studio
+                    │
+             Local LLM model
+          ┌─────────┴─────────┐
+          │                   │
+     Qwen3.5 27B        gpt-oss-20B
+          │                   │
+          └─────────┬─────────┘
+                    │
+                MCP Client
+                    │
+                  stdio
+                    │
+                    ▼
+              FastMCP Server
+                    │
+                    ▼
+             Video Service
+                    │
+                    ▼
+            Local GPU / Backend
+```
+
+The LLM is responsible for understanding the user's request and deciding which MCP tools to use.
+
+The actual video generation is performed by a separate video-generation backend.
+
+---
+
+# Roadmap
+
+## Phase 1 — Local MVP / Proof of Concept
+
+**Status: Planned**
+
+The first phase focuses entirely on proving that the concept works.
+
+There will be:
+
+* No Docker
+* No HTTPS
+* No remote deployment
+* No Terraform
+* No Ansible
+* No Jenkins
+* No VM
+
+The MCP server will run locally using **stdio transport**.
+
+The video-generation workload will initially use the GPU and other resources available on the developer's PC.
+
+### Initial architecture
+
+```text
+LM Studio
+    │
+    │ Local LLM
+    ▼
+MCP Client
+    │
+    │ stdio
+    ▼
+FastMCP Server
+    │
+    ▼
+Video-generation tools
+    │
+    ▼
+Developer PC GPU
+```
+
+### Initial MCP tools
+
+The first version will provide a minimal set of tools, for example:
+
+```text
+create_video()
+get_video_status()
+get_video_result()
+cancel_video()
+```
+
+The first implementation may use a mock/fake video backend.
+
+This is intentional.
+
+Before connecting an actual video-generation model, the project should establish that the selected LLM can reliably:
+
+1. Understand the available MCP tools
+2. Select the correct tool
+3. Generate valid tool arguments
+4. Handle returned job IDs
+5. Check job status
+6. Handle errors
+7. Complete a multi-step video-generation workflow
+
+### LLM evaluation
+
+The initial models to evaluate are:
+
+* Qwen3.5 27B
+* gpt-oss-20B
+
+Additional models may be tested later.
+
+The models will be tested through **LM Studio** using the same MCP server and the same tool definitions.
+
+The goal is to determine which model provides the best combination of:
+
+* Tool-calling reliability
+* Reasoning
+* Parameter accuracy
+* Context handling
+* Speed
+* Resource consumption
+* Error recovery
+* Overall reliability as an MCP agent
+
+---
+
+# Phase 2 — Remote MVP
+
+**Status: Planned**
+
+Once the local proof-of-concept works, the MCP server will be adapted for remote access.
+
+The transport will move from:
+
+```text
+stdio
+```
+
+to:
+
+```text
+Streamable HTTP
+```
+
+The service will eventually be exposed through:
+
+```text
+HTTPS
+```
+
+### Target architecture
+
+```text
+                Internet
+                    │
+                   HTTPS
+                    │
+                    ▼
+             Streamable HTTP
+                    │
+                    ▼
+              FastMCP Server
+                    │
+                    ▼
+             Video Backend
+                    │
+                    ▼
+              GPU / Compute
+```
+
+This phase introduces concerns that are not necessary during local development, including:
+
+* HTTPS/TLS
+* Authentication
+* Authorization
+* Secrets management
+* Network security
+* Request validation
+* Logging
+* Error handling
+* Rate limiting
+* Remote configuration
+
+The goal is to make the MCP server usable remotely while keeping the underlying MCP tool interface stable.
+
+---
+
+# Phase 3 — Production MVP
+
+**Status: Planned**
+
+After the remote MVP has been validated, the application will be moved away from the developer's personal PC and deployed to dedicated infrastructure.
+
+This phase introduces:
+
+* Docker
+* Virtual machines
+* Dedicated GPU compute
+* Persistent storage
+* Environment configuration
+* Service management
+
+### Target architecture
+
+```text
+                    Internet
+                       │
+                      HTTPS
+                       │
+                       ▼
+                 ┌───────────┐
+                 │    VM     │
+                 │           │
+                 │ FastMCP   │
+                 │ Server    │
+                 └─────┬─────┘
+                       │
+                       ▼
+                 Video Backend
+                       │
+                       ▼
+                  GPU Compute
+```
+
+Docker will package the application and its Python dependencies into a reproducible environment.
+
+The development environment and production environment should remain consistent as much as practical.
+
+---
+
+# Phase 4 — Infrastructure & Automation
+
+**Status: Planned**
+
+Once the application is running reliably on dedicated infrastructure, infrastructure automation and CI/CD will be introduced.
+
+Potential technologies include:
+
+* **Terraform** — infrastructure provisioning
+* **Ansible** — server configuration and deployment
+* **Jenkins** — CI/CD and deployment automation
+* GitHub — source control and collaboration
+
+### Target workflow
+
+```text
+Developer
+    │
+    ▼
+GitHub
+    │
+    ▼
+CI / Tests
+    │
+    ▼
+Jenkins
+    │
+    ├── Terraform
+    │       │
+    │       ▼
+    │     Infrastructure
+    │
+    └── Ansible
+            │
+            ▼
+        VM / Services
+            │
+            ▼
+          Docker
+            │
+            ▼
+       FastMCP Server
+            │
+            ▼
+       Video Backend
+            │
+            ▼
+         GPU Worker
+```
+
+The purpose of this phase is to make the system reproducible, deployable, and maintainable rather than manually configured.
+
+---
+
+# Development Strategy
+
+The project intentionally follows an incremental approach.
+
+We do **not** want to solve infrastructure problems before the core application is proven.
+
+The progression is:
+
+```text
+1. Prove the MCP concept
+        ↓
+2. Test local LLMs
+        ↓
+3. Connect real video generation
+        ↓
+4. Enable remote access
+        ↓
+5. Move to dedicated infrastructure
+        ↓
+6. Containerize
+        ↓
+7. Automate infrastructure and deployment
+```
+
+Each phase should produce a working system before the next layer of complexity is introduced.
+
+---
+
+# Technology Stack
+
+## Initial
+
+* Python
+* FastMCP 4.x
+* MCP
+* LM Studio
+* Qwen3.5 27B
+* gpt-oss-20B
+* Local GPU
+
+## Development
+
+* `uv`
+* `pyproject.toml`
+* Python virtual environment
+* Git
+* GitHub
+* pytest
+* Ruff
+
+## Later
+
+* Streamable HTTP
+* HTTPS
+* Docker
+* Virtual machines
+* GPU infrastructure
+* Terraform
+* Ansible
+* Jenkins
+
+The exact video-generation model and backend will be selected after the initial MCP/LLM proof-of-concept.
+
+---
+
+# Project Structure
+
+The project is expected to follow a structure similar to:
+
+```text
+AI-video-generator/
+│
+├── mcp/
+│   ├── __init__.py
+│   ├── server.py
+│   │
+│   ├── tools/
+│   │   ├── __init__.py
+│   │   └── video.py
+│   │
+│   ├── services/
+│   │   └── video_service.py
+│   │
+│   └── models/
+│       └── video.py
+│
+├── tests/
+│
+├── Dockerfile
+├── compose.yaml
+├── pyproject.toml
+├── uv.lock
+├── .dockerignore
+├── .gitignore
+├── .env.example
+└── README.md
+```
+
+Docker-related files may remain unused during Phase 1. They will become relevant during the deployment phase.
+
+---
+
+# Development Environment
+
+A dedicated Python environment will be used during development.
+
+The project should not install its dependencies globally into the developer's system Python installation.
+
+`uv` will be used to manage the project environment and dependencies.
+
+For example:
+
+```bash
+uv sync
+```
+
+This creates/updates the project's isolated environment based on `pyproject.toml` and `uv.lock`.
+
+The virtual environment should not be committed to Git.
+
+---
+
+# MCP Transport
+
+## Phase 1
+
+```text
+stdio
+```
+
+stdio is used because the MCP server is running locally and the main objective is rapid development and testing.
+
+## Phase 2+
+
+```text
+Streamable HTTP
+```
+
+Streamable HTTP will be introduced when the MCP server needs to be accessed remotely.
+
+The MCP tools themselves should remain largely independent of the transport.
+
+For example:
+
+```python
+@mcp.tool
+def create_video(
+    prompt: str,
+    duration: int = 5,
+    aspect_ratio: str = "16:9",
+):
+    ...
+```
+
+The same logical tool should be usable regardless of whether the MCP server is accessed through stdio or Streamable HTTP.
+
+---
+
+# Design Principles
+
+### 1. Keep the MCP layer thin
+
+MCP tools should expose a clean interface to the LLM.
+
+Complex video-generation logic should live in services/backend components rather than directly inside the MCP tool implementation.
+
+### 2. Keep the video backend replaceable
+
+The MCP server should not be tightly coupled to one video-generation implementation.
+
+Possible future backends include:
+
+```text
+Local video model
+ComfyUI
+Remote video-generation API
+Dedicated GPU worker
+```
+
+### 3. Keep the LLM replaceable
+
+The MCP server should not be designed around a specific LLM.
+
+The same MCP tools should be testable with:
+
+```text
+Qwen3.5 27B
+gpt-oss-20B
+Other local models
+Future models
+```
+
+### 4. Introduce infrastructure only when needed
+
+The project will start locally and become progressively more production-oriented.
+
+There is no need to introduce Docker, HTTPS, Terraform, Ansible, Jenkins, or cloud infrastructure before the core application has been validated.
+
+---
+
+# Current Status
+
+**Phase 1 — Local MVP / Proof of Concept**
+
+The current focus is:
+
+* [ ] Create project structure
+* [ ] Configure Python environment
+* [ ] Configure `pyproject.toml`
+* [ ] Install FastMCP 4.x
+* [ ] Create basic stdio MCP server
+* [ ] Implement `create_video()` mock tool
+* [ ] Connect MCP client to LM Studio
+* [ ] Test Qwen3.5 27B
+* [ ] Test gpt-oss-20B
+* [ ] Compare tool-calling performance
+* [ ] Select initial LLM
+* [ ] Select video-generation backend
+* [ ] Connect real video generation
+
+---
+
+# Long-Term Vision
+
+The final system is intended to become a remotely accessible MCP-based AI video-generation service.
+
+The long-term architecture may look like:
+
+```text
+                    User / AI Agent
+                          │
+                          ▼
+                    MCP Client
+                          │
+                       HTTPS
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │   FastMCP API    │
+                 └────────┬────────┘
+                          │
+                    Job Management
+                          │
+                 ┌────────┴────────┐
+                 │                 │
+                 ▼                 ▼
+           Video Queue        Other Services
+                 │
+                 ▼
+            GPU Worker(s)
+                 │
+                 ▼
+          Video Generation
+                 │
+                 ▼
+          Storage / Result
+```
+
+The exact architecture will evolve as the project progresses.
+
+The primary objective is to keep the system **modular, testable, replaceable, and deployable** while avoiding unnecessary complexity during the early development stages.

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ai-video-generator": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "mcp/server.py"
+      ],
+      "cwd": "E:\\DARBS\\AI-video-generator" // CHANGE THIS TO YOUR PROJECT ROOT FOLDER 
+    }
+  }
+}
