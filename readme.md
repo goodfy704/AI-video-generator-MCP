@@ -24,7 +24,7 @@ This allows the project to evolve from a local GPU-based prototype into a remote
 
 ---
 
-Project setup
+# Project setup
 
 You should have installed python 3.14.7. You can download it from Python Install Manager here: https://www.python.org/downloads/
 
@@ -34,13 +34,17 @@ Clone repository to your local machine
 
 Open cloned repository folder with terminal and create local virtual environment:
 
+```
 py -m venv .venv
+```
 
 Go to mcp.json and change cwd to your folder where you have the cloned repository
 
 Run from root folder:
 
+```
 uv sync
+```
 
 Go to LM studio settings -> Connected Apps -> Custom MCP. Fill the as shown in the screenshot except use your cloned repository folder in Working directory.
 
@@ -48,7 +52,9 @@ photo goes here
 
 From vsc run:
 
+```
 uv run python mcp/server.py
+```
 
 In LM studio you should see connected status with tools available
 
@@ -66,9 +72,12 @@ TEST if LLM is working
 
 In chat write:
 
+```
 Create a 10 second video of a futuristic city at night in 16:9.
+```
 
 It should call the create_video() tool.
+
 
 # Architecture
 
