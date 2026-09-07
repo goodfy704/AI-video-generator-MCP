@@ -1,1 +1,0 @@
-# future implementation will use a video generation model to create a video based on the prompt, duration, and aspect ratio.

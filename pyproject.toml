@@ -13,3 +13,16 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.8",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The project is not installed into the environment, so the root has to be on
+# sys.path for `import video_mcp` to resolve.
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

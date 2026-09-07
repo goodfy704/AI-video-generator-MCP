@@ -5,9 +5,14 @@
       "args": [
         "run",
         "python",
-        "mcp/server.py"
+        "-m",
+        "video_mcp.server"
       ],
-      "cwd": "E:\\DARBS\\AI-video-generator" // CHANGE THIS TO YOUR PROJECT ROOT FOLDER 
+      "cwd": "C:/Users/Motion/Desktop/AI-video-generator-MCP",
+      "env": {
+        "AI_VIDEO_MOCK_QUEUED_SECONDS": "5",
+        "AI_VIDEO_MOCK_RUNNING_SECONDS": "120"
+      }
     }
   }
 }
