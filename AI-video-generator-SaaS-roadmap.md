@@ -1,6 +1,6 @@
 # AI Video Generator: roadmap from mock MCP to paid SaaS
 
-Prepared for Raivis, PICNIC and Mot1One · 10 September 2026
+Prepared for justnevermark, PICNIC and Mot1One · 10 September 2026
 
 This is a proposed delivery plan, with feature-level backlog items and acceptance criteria. Prices are current public list prices checked on this date, mostly in USD. They are not account-specific quotes. Performance figures below are test targets or explicitly illustrative calculations, not measured results from your service. No cloud resources, paid jobs or GitHub issues were created during this review.
 
@@ -91,7 +91,7 @@ Store images and MP4 files in private object storage. Store ownership, keys, che
 
 | Person | Primary ownership | Concrete handoff |
 |---|---|---|
-| Raivis | MCP contracts, application services, agent integration, web/API, accounts and credits | Versioned API/tool contract, working application, automated correctness tests |
+| justnevermark | MCP contracts, application services, agent integration, web/API, accounts and credits | Versioned API/tool contract, working application, automated correctness tests |
 | Mot1One | Video-model evaluation, LLM evaluation, prompt quality and media validation | Reproducible workflow pack and a scored benchmark report |
 | PICNIC | OCI, GPU deployment, container builds, CI/CD, secrets, monitoring and recovery | Reproducible deployment and a tested recovery runbook |
 
@@ -388,7 +388,7 @@ Represent an epic as a parent issue and each feature below as a linked issue/sub
 | Field | Values |
 |---|---|
 | Status | Backlog, Ready, In progress, Review, Blocked, Done |
-| Owner | Raivis, Mot1One, PICNIC |
+| Owner | justnevermark, Mot1One, PICNIC |
 | Area | Application, Models, DevOps, Security, Billing |
 | Priority | P0 required for that release; P1 improvement after the relevant P0 gate |
 | Milestone | M0 through M6 |
@@ -406,45 +406,45 @@ All rows are proposed features, not claims of completed work. D-prefixed depende
 
 | ID | Epic / feature | Owner | Milestone / priority | Depends on | Acceptance criteria |
 |---|---|---|---|---|---|
-| F1.1 | E1 Foundation: reproducible project setup | Raivis | M0 / P0 | None | Sanitized agent committed; configuration documented; README/transport/Python mismatches resolved; current tests characterized |
-| F1.2 | E1 Foundation: image and generation contract | Raivis | M0 / P0 | F1.1 | Typed asset/plan/job models; five-second preset and one orientation; unsupported inputs fail before dispatch |
-| F1.3 | E1 Foundation: project board and decision log | Raivis | M0 / P0 | None | All features have one owner, milestone and acceptance criteria; first-week work is Ready |
+| F1.1 | E1 Foundation: reproducible project setup | justnevermark | M0 / P0 | None | Sanitized agent committed; configuration documented; README/transport/Python mismatches resolved; current tests characterized |
+| F1.2 | E1 Foundation: image and generation contract | justnevermark | M0 / P0 | F1.1 | Typed asset/plan/job models; five-second preset and one orientation; unsupported inputs fail before dispatch |
+| F1.3 | E1 Foundation: project board and decision log | justnevermark | M0 / P0 | None | All features have one owner, milestone and acceptance criteria; first-week work is Ready |
 | F2.1 | E2 Video baseline: reproducible workflow pack | Mot1One | M1 / P0 | F1.2 | Exact model/workflow, required files, versions, GPU/RAM and source test image recorded |
 | F2.2 | E2 Video baseline: first real 480p output | Mot1One | M1 / P0 | F2.1, D1.3 | Two runs produce playable MP4s; actual costs, cold/warm time and VRAM captured |
 | F2.3 | E2 Video baseline: budgeted model screen | Mot1One | M2 / P0 | F2.2 | Up to three known candidates tested with fixed scenarios; baseline decision justified |
 | F2.4 | E2 Video baseline: finalist quality benchmark | Mot1One | M3 / P1 | F2.3 | Two-seed evaluation with blind scoring and all failures retained; funded separately if demo budget exhausted |
-| F3.1 | E3 Reliable pipeline: durable jobs and attempts | Raivis | M2 / P0 | F1.2 | Persisted state, leases and provider IDs; restart does not erase jobs |
-| F3.2 | E3 Reliable pipeline: real provider adapter | Raivis | M2 / P0 | F2.2, D2.2, F3.1 | Existing tool operations use hosted GPU jobs through a replaceable adapter |
-| F3.3 | E3 Reliable pipeline: idempotency and reconciliation | Raivis | M2 / P0 | F3.2 | Duplicate requests and ambiguous submissions cannot blindly cause duplicate spend |
-| F3.4 | E3 Reliable pipeline: cancellation and retry policy | Raivis | M2 / P0 | F3.3 | Queued/running cancellation, finite retries and terminal races produce truthful state |
-| F3.5 | E3 Reliable pipeline: output delivery and expiry | Raivis | M2 / P0 | D2.4, F3.2 | Only validated files become downloadable; expired assets are cleaned up predictably |
+| F3.1 | E3 Reliable pipeline: durable jobs and attempts | justnevermark | M2 / P0 | F1.2 | Persisted state, leases and provider IDs; restart does not erase jobs |
+| F3.2 | E3 Reliable pipeline: real provider adapter | justnevermark | M2 / P0 | F2.2, D2.2, F3.1 | Existing tool operations use hosted GPU jobs through a replaceable adapter |
+| F3.3 | E3 Reliable pipeline: idempotency and reconciliation | justnevermark | M2 / P0 | F3.2 | Duplicate requests and ambiguous submissions cannot blindly cause duplicate spend |
+| F3.4 | E3 Reliable pipeline: cancellation and retry policy | justnevermark | M2 / P0 | F3.3 | Queued/running cancellation, finite retries and terminal races produce truthful state |
+| F3.5 | E3 Reliable pipeline: output delivery and expiry | justnevermark | M2 / P0 | D2.4, F3.2 | Only validated files become downloadable; expired assets are cleaned up predictably |
 | F4.1 | E4 Orchestration: model evaluation harness | Mot1One | M2 / P0 | F1.2 | Mock scenarios compare direct/Gemma/Qwen configurations and produce reliability/memory/latency results |
-| F4.2 | E4 Orchestration: bounded planner and dispatcher | Raivis | M2 / P0 | F4.1, F3.2 | Story requirements become a validated plan; one authorized generation; no model-controlled credit changes |
+| F4.2 | E4 Orchestration: bounded planner and dispatcher | justnevermark | M2 / P0 | F4.1, F3.2 | Story requirements become a validated plan; one authorized generation; no model-controlled credit changes |
 | F4.3 | E4 Orchestration: prompt-fidelity evaluation | Mot1One | M2 / P0 | F4.2 | Compare raw versus enhanced prompt without changing required subject/action/duration; document failures |
 | F4.4 | E4 Orchestration: small-model optimization | Mot1One | M3 / P1 | F4.1 | Selected VM model meets agreed latency/memory gate alongside web/DB services |
-| F5.1 | E5 Web alpha: accounts and application skeleton | Raivis | M3 / P0 | M2, D2.1 | Register/login/logout/reset/verification flow works; database migrations and admin view exist |
-| F5.2 | E5 Web alpha: private upload and ownership | Raivis | M3 / P0 | F5.1, D2.4 | Validated owned uploads; other users cannot access or reuse them |
-| F5.3 | E5 Web alpha: generation and history UI | Raivis | M3 / P0 | F5.2, F4.2 | Upload/story/duration form, queued/running/errors, cancellation, history and MP4 download work |
-| F5.4 | E5 Web alpha: capability-driven presets | Raivis | M3 / P0 | F2.3, F5.3 | UI and MCP advertise only tested presets; ten-second/second orientation added only after validation |
-| F5.5 | E5 Web alpha: administrator recovery controls | Raivis | M3 / P0 | F3.4, F5.1 | Admin can pause submissions, inspect attempts and reconcile stuck jobs with audit records |
-| F6.1 | E6 Billing: measured credit pricing | Raivis | M4 / P0 | F2.4 or sufficient measured sample | Versioned quote formula covers measured full-use plan costs; team accepts assumptions |
-| F6.2 | E6 Billing: transactional credit ledger | Raivis | M4 / P0 | F6.1, F3.3 | Reserve/settle/release/refund/expiry are auditable and concurrency-safe |
-| F6.3 | E6 Billing: subscription checkout and portal | Raivis | M4 / P0 | F5.1, F6.2 | Sandbox purchase, renewal, cancellation and failed payment update entitlements correctly |
-| F6.4 | E6 Billing: webhook and refund reconciliation | Raivis | M4 / P0 | F6.3 | Duplicated/reordered events do not double-grant credits; refund policy and support recovery tested |
-| F6.5 | E6 Billing: user quotas and fairness | Raivis | M4 / P0 | F6.2, F5.4 | Per-user queued/active limits and global capacity prevent one account monopolizing spend |
+| F5.1 | E5 Web alpha: accounts and application skeleton | justnevermark | M3 / P0 | M2, D2.1 | Register/login/logout/reset/verification flow works; database migrations and admin view exist |
+| F5.2 | E5 Web alpha: private upload and ownership | justnevermark | M3 / P0 | F5.1, D2.4 | Validated owned uploads; other users cannot access or reuse them |
+| F5.3 | E5 Web alpha: generation and history UI | justnevermark | M3 / P0 | F5.2, F4.2 | Upload/story/duration form, queued/running/errors, cancellation, history and MP4 download work |
+| F5.4 | E5 Web alpha: capability-driven presets | justnevermark | M3 / P0 | F2.3, F5.3 | UI and MCP advertise only tested presets; ten-second/second orientation added only after validation |
+| F5.5 | E5 Web alpha: administrator recovery controls | justnevermark | M3 / P0 | F3.4, F5.1 | Admin can pause submissions, inspect attempts and reconcile stuck jobs with audit records |
+| F6.1 | E6 Billing: measured credit pricing | justnevermark | M4 / P0 | F2.4 or sufficient measured sample | Versioned quote formula covers measured full-use plan costs; team accepts assumptions |
+| F6.2 | E6 Billing: transactional credit ledger | justnevermark | M4 / P0 | F6.1, F3.3 | Reserve/settle/release/refund/expiry are auditable and concurrency-safe |
+| F6.3 | E6 Billing: subscription checkout and portal | justnevermark | M4 / P0 | F5.1, F6.2 | Sandbox purchase, renewal, cancellation and failed payment update entitlements correctly |
+| F6.4 | E6 Billing: webhook and refund reconciliation | justnevermark | M4 / P0 | F6.3 | Duplicated/reordered events do not double-grant credits; refund policy and support recovery tested |
+| F6.5 | E6 Billing: user quotas and fairness | justnevermark | M4 / P0 | F6.2, F5.4 | Per-user queued/active limits and global capacity prevent one account monopolizing spend |
 | F7.1 | E7 Release: concurrency and soak evaluation | Mot1One | M5 / P0 | F6.5, D4.4 | Mock 100-account/10-submit and staged real-job tests report queue, planning, GPU time and correctness |
-| F7.2 | E7 Release: security and abuse controls | Raivis | M5 / P0 | F5.2, F6.4, D4.2 | Ownership, injection, replay, rate-limit and secret-leak checks pass; reporting/deletion exist |
-| F7.3 | E7 Release: license and product readiness | Raivis | M5 / P0 | F2.1, F6.3 | Actual model/component licenses, processing regions, retention, billing terms and customer support are reviewed |
-| F7.4 | E7 Release: invited paid launch | Raivis | M5 / P0 | F7.1–F7.3, D4.3–D4.6 | Begin with 10–20 users; no known credit/data isolation defects; expand toward 100 using measured demand |
+| F7.2 | E7 Release: security and abuse controls | justnevermark | M5 / P0 | F5.2, F6.4, D4.2 | Ownership, injection, replay, rate-limit and secret-leak checks pass; reporting/deletion exist |
+| F7.3 | E7 Release: license and product readiness | justnevermark | M5 / P0 | F2.1, F6.3 | Actual model/component licenses, processing regions, retention, billing terms and customer support are reviewed |
+| F7.4 | E7 Release: invited paid launch | justnevermark | M5 / P0 | F7.1–F7.3, D4.3–D4.6 | Begin with 10–20 users; no known credit/data isolation defects; expand toward 100 using measured demand |
 | F8.1 | E8 Expansion: lower-cost GPU profile | Mot1One | M6 / P1 | Stable baseline | One 48 GB/quantized profile compared on cost per acceptable clip, speed and quality |
 | F8.2 | E8 Expansion: 1080p enhancement | Mot1One | M6 / P1 | Stable delivery | Compare native higher-resolution output against enhancement; score flicker, identity, detail and cost |
-| F8.3 | E8 Expansion: upscale job integration | Raivis | M6 / P1 | F8.2, F6.2 | Separate quoted upscale job, original retained, duration/audio sync preserved |
-| F8.4 | E8 Expansion: longer story generation | Raivis | M6 / P1 | Quality baseline, sufficient budget | Story/shot plan, continuity strategy and native multishot versus stitching benchmark; quote total cost first |
+| F8.3 | E8 Expansion: upscale job integration | justnevermark | M6 / P1 | F8.2, F6.2 | Separate quoted upscale job, original retained, duration/audio sync preserved |
+| F8.4 | E8 Expansion: longer story generation | justnevermark | M6 / P1 | Quality baseline, sufficient budget | Story/shot plan, continuity strategy and native multishot versus stitching benchmark; quote total cost first |
 | F8.5 | E8 Expansion: audio and delivery options | Mot1One | M6 / P1 | Stable video profiles | Explicit sound/music/narration scope, rights, sync and cost validated before public exposure |
 
 ## 16. The next work session
 
-Raivis: take F1.1 and then F1.2. Preserve the backend abstraction, add the image asset contract and commit the sanitized VM agent. Keep the mock available.
+justnevermark: take F1.1 and then F1.2. Preserve the backend abstraction, add the image asset contract and commit the sanitized VM agent. Keep the mock available.
 
 Mot1One: take F2.1. Bring one exact LTX-2.5 image-to-video workflow that can be reproduced without manual edits, with its full model inventory and a short reference scenario.
 
