@@ -104,8 +104,8 @@ stopped=1
 sudo -n /usr/bin/systemctl stop aivideo-web.service
 run_config "$python" "$common_dir/backup-database.py" "$DEPLOY_ROOT/shared/backups"
 run_config "${manage[@]}" migrate --noinput
-find "$DEPLOY_ROOT/shared/runtime" -type d -exec chmod g+rwx {} +
-find "$DEPLOY_ROOT/shared/runtime" -type f -exec chmod g+rw {} +
+find "$DEPLOY_ROOT/shared/runtime" -type d -user aivideo-deploy -exec chmod g+rwx {} +
+find "$DEPLOY_ROOT/shared/runtime" -type f -user aivideo-deploy -exec chmod g+rw {} +
 link_current "$release"
 activated=1
 restart_services
