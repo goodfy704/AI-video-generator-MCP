@@ -29,6 +29,7 @@ class Generation(models.Model):
         Conversation, on_delete=models.CASCADE, related_name="generations"
     )
     prompt = models.TextField(max_length=2000)
+    duration = models.PositiveSmallIntegerField(default=5)
     image_key = models.CharField(max_length=300)
     image_name = models.CharField(max_length=150)
     image_width = models.PositiveIntegerField()

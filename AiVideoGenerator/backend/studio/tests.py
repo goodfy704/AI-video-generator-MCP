@@ -74,6 +74,7 @@ class StudioTests(TestCase):
         data = {
             "request_id": str(uuid4()),
             "prompt": "A slow camera move.",
+            "duration": "5",
             "image": image_upload(),
         }
         data.update(changes)
@@ -150,12 +151,27 @@ class StudioTests(TestCase):
                 self.assertEqual(image.format, "PNG")
                 self.assertEqual(image.size, (640, 360))
 
+    def test_duration_is_recorded_and_local_backend_rejects_long_story(self):
+        response = self.submit(duration="5")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["duration"], 5)
+        self.assertEqual(self.submit(duration="10").status_code, 400)
+        self.assertEqual(self.submit(duration="").status_code, 400)
+
     def test_duplicate_request_returns_same_job(self):
         identifier = str(uuid4())
         first = self.submit(request_id=identifier)
         second = self.submit(request_id=identifier)
         self.assertEqual(first.json()["id"], second.json()["id"])
         self.assertEqual(Generation.objects.count(), 1)
+
+    def test_duplicate_request_with_changed_duration_is_rejected(self):
+        identifier = str(uuid4())
+        self.assertEqual(self.submit(request_id=identifier).status_code, 201)
+        response = self.submit(request_id=identifier, duration="10")
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(Generation.objects.count(), 1)
+        self.assertEqual(Generation.objects.get().duration, 5)
 
     def test_invalid_inputs_never_create_job(self):
         for changes in [{"prompt": " "}, {"prompt": "x" * 2001}, {"request_id": "invalid"}]:

@@ -127,6 +127,8 @@ a { color: inherit; text-decoration: none; }
 .suggestion b { position: absolute; right: 11px; bottom: 30px; color: #8a977a; font-size: 13px; font-weight: 400; }
 .composer-area { width: min(850px, 100%); margin: 0 auto; padding: 10px 40px 28px; }
 .composer { border: 1px solid #d9dfcf; border-radius: 13px; background: #fff; padding: 16px 17px 12px; box-shadow: 0 5px 25px #2c4a2610; transition: border-color .15s; }
+.composer label[for="duration"] { display: inline-block; margin: 8px 10px 8px 0; font-size: 13px; color: #334b36; }
+.composer select { padding: 7px 10px; border: 1px solid #cbd5c4; border-radius: 7px; background: #fff; color: #203b28; }
 .composer:focus-within, .composer.dragging { border-color: #91a67d; }
 .composer.dragging { background: #f0f6e7; outline: 2px dashed #91a67d; }
 .composer textarea { display: block; border: 0; padding: 3px 2px; resize: vertical; min-height: 64px; max-height: 180px; width: 100%; background: transparent; outline: none; color: #394431; line-height: 1.6; font-size: 13px; }

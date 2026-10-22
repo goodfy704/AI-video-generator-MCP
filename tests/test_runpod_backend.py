@@ -181,6 +181,36 @@ def test_create_submits_trimmed_workflow_once(backend, runpod, plan):
     assert image["image"] == "data:image/jpeg;base64," + encoded
 
 
+def test_story_beats_submit_sequentially_from_previous_frame(backend, runpod, plan, monkeypatch):
+    import video_mcp.runpod as runpod_module
+
+    beats = ["The apple begins walking.", "The same apple reaches the tree."]
+    story = plan.model_copy(update={"duration": 10, "story_beats": beats})
+    monkeypatch.setattr(runpod_module.shutil, "which", lambda name: "ffmpeg")
+
+    def extract_frame(command, **kwargs):
+        Path(command[-1]).write_bytes(b"previous-final-frame")
+
+    monkeypatch.setattr(runpod_module.subprocess, "run", extract_frame)
+    monkeypatch.setattr(backend, "_join_segments", lambda job_id, count: (backend.root / "outputs" / f"{job_id}.mp4").write_bytes(fake_mp4(milliseconds=10000)))
+    job = backend.create(story)
+    assert len(runpod.runs) == 1
+    assert runpod.runs[0]["input"]["workflow"]["398:376"]["inputs"]["value"] == beats[0]
+
+    runpod.complete("rp-1")
+    job = backend.status(job.job_id)
+    assert job.status is JobStatus.QUEUED
+    assert job.provider_job_id == "rp-2"
+    assert len(runpod.runs) == 2
+    assert runpod.runs[1]["input"]["workflow"]["398:376"]["inputs"]["value"] == beats[1]
+    assert base64.b64decode(runpod.runs[1]["input"]["images"][0]["image"].split(",", 1)[1]) == b"previous-final-frame"
+
+    runpod.complete("rp-2")
+    job = backend.status(job.job_id)
+    assert job.status is JobStatus.COMPLETED
+    assert backend.result(job.job_id).duration == 10
+
+
 def test_shared_template_is_not_mutated(backend, runpod, plan):
     before = json.dumps(WORKFLOW, sort_keys=True)
     backend.create(plan)

@@ -37,8 +37,7 @@ def test_create_schema_advertises_foundation_contract(list_tools):
 
     duration = plan_schema["properties"]["duration"]
     assert duration["type"] == "integer"
-    assert duration["minimum"] == 5
-    assert duration["maximum"] == 5
+    assert duration["enum"] == [5, 10, 15, 30]
     assert duration["default"] == 5
 
     ratio = plan_schema["properties"]["aspect_ratio"]

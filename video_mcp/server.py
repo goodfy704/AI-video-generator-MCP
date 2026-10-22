@@ -50,7 +50,7 @@ def tool_errors():
 
 @mcp.tool(annotations={"readOnlyHint": True})
 def list_video_models() -> list[dict]:
-    """List supported generation models and the single available preset."""
+    """List supported generation models and duration presets."""
     return [backend.describe()]
 
 

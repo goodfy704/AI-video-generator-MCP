@@ -32,11 +32,19 @@ def test_plan_defaults(plan_data):
 
 @pytest.mark.parametrize(
     "duration",
-    [0, 1, 4, 6, 10, 60, True, False, 5.0, "5", None],
+    [0, 1, 4, 6, 20, 60, True, False, 5.0, "5", None],
 )
 def test_unsupported_duration_is_rejected(plan_data, duration):
     with pytest.raises(ValidationError):
         GenerationPlan(**{**plan_data, "duration": duration})
+
+
+@pytest.mark.parametrize("duration", [5, 10, 15, 30])
+def test_storyboard_matches_selected_duration(plan_data, duration):
+    beats = [f"Continue the same scene, beat {index}." for index in range(duration // 5)]
+    assert GenerationPlan(**plan_data, duration=duration, story_beats=beats).story_beats == beats
+    with pytest.raises(ValidationError):
+        GenerationPlan(**plan_data, duration=duration, story_beats=beats + ["extra beat"])
 
 
 @pytest.mark.parametrize("ratio", ["9:16", "1:1", "4:3", "21:9", ""])

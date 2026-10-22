@@ -19,7 +19,9 @@ import json
 import logging
 import os
 import random
+import shutil
 import struct
+import subprocess
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -86,6 +88,7 @@ def build_workflow(
     width: int,
     height: int,
     seeds: tuple[int, int],
+    prompt_suffix: str = "",
 ) -> dict:
     workflow = copy.deepcopy(WORKFLOW)
     values = {
@@ -103,7 +106,7 @@ def build_workflow(
     workflow[NODES["resize"]]["inputs"]["resize_type.longer_size"] = width
     workflow[NODES["low_res_noise"]]["inputs"]["noise_seed"] = seeds[0]
     workflow[NODES["full_res_noise"]]["inputs"]["noise_seed"] = seeds[1]
-    workflow[NODES["output"]]["inputs"]["filename_prefix"] = f"avg/{job_id}"
+    workflow[NODES["output"]]["inputs"]["filename_prefix"] = f"avg/{job_id}{prompt_suffix}"
     return workflow
 
 
@@ -183,6 +186,7 @@ class RunPodBackend(ComfyBackend):
             "model": "ltx-2-5-fast",
             "engine": "LTX-2.5 22B distilled INT8, ComfyUI on RunPod serverless",
             "duration": SECONDS,
+            "durations": [5, 10, 15, 30],
             "aspect_ratio": "16:9",
             "resolution": f"{self.width}x{self.height}",
             "audio": "silent",
@@ -233,7 +237,7 @@ class RunPodBackend(ComfyBackend):
         record.update(fields)
         self._write(path, json.dumps(record, indent=2).encode())
 
-    def _check_spend_limits(self):
+    def _check_spend_limits(self, requested_segments: int = 1):
         jobs = list(self._jobs())
         active = next(
             (job for job in jobs if job.status in ACTIVE and job.provider_job_id), None
@@ -245,13 +249,14 @@ class RunPodBackend(ComfyBackend):
             )
 
         since = datetime.now(UTC) - timedelta(days=1)
-        recent = sum(
-            1
-            for job in jobs
-            if job.created_at >= since
-            and (job.provider_job_id or job.status is JobStatus.UNKNOWN)
-        )
-        if recent >= self.daily_limit:
+        recent = 0
+        for prior in jobs:
+            if prior.created_at < since or not (prior.provider_job_id or prior.status is JobStatus.UNKNOWN):
+                continue
+            path = self.root / "runpod" / f"{prior.job_id}.json"
+            details = json.loads(path.read_text()) if path.is_file() else {}
+            recent += int(details.get("segment", 0)) + 1
+        if recent + requested_segments > self.daily_limit:
             raise VideoServiceError(
                 f"Daily RunPod limit reached ({self.daily_limit} jobs in 24 hours). "
                 "Raise RUNPOD_MAX_JOBS_PER_DAY to allow more."
@@ -268,20 +273,23 @@ class RunPodBackend(ComfyBackend):
     def estimate(self, plan: GenerationPlan) -> VideoEstimate:
         self.validate_plan(plan)
         return VideoEstimate(
-            estimated_cost=self.estimated_cost,
-            generated_seconds=SECONDS,
+            estimated_cost=round(self.estimated_cost * (plan.duration // SECONDS), 3),
+            generated_seconds=plan.duration,
+            delivered_seconds=plan.duration,
             basis=(
-                f"RunPod serverless GPU at ${self.price_per_second}/s for about "
-                f"{self.expected_seconds:.0f} s of worker time (cold start, model "
-                f"load and a {self.width}x{self.height} render); excludes taxes."
+                f"{plan.duration // SECONDS} sequential RunPod renders, about "
+                f"{self.expected_seconds:.0f} worker seconds each at "
+                f"${self.price_per_second}/s; excludes taxes."
             ),
         )
 
     def create(self, plan: GenerationPlan) -> VideoJob:
         plan, asset, content = self.validate_plan(plan)
+        if plan.duration > SECONDS and not shutil.which("ffmpeg"):
+            raise VideoServiceError("ffmpeg is required for videos longer than five seconds.")
 
         with self._lock:
-            self._check_spend_limits()
+            self._check_spend_limits(plan.duration // SECONDS)
 
             job = VideoJob(
                 job_id=uuid4(),
@@ -291,18 +299,24 @@ class RunPodBackend(ComfyBackend):
             )
             self._save("jobs", job.job_id, job)
 
+            return self._submit_segment(job, content, 0)
+
+    def _submit_segment(self, job: VideoJob, content: bytes, segment: int) -> VideoJob:
+            plan = job.plan
             rng = random.SystemRandom()
             seeds = (rng.randrange(1, 2**48), rng.randrange(1, 2**48))
-            image_name = f"{asset.asset_id}.jpg"
+            image_name = f"{plan.asset_id}.jpg" if segment == 0 else f"{job.job_id}-{segment}.jpg"
+            beats = plan.story_beats or [plan.prompt] * (plan.duration // SECONDS)
             payload = {
                 "input": {
                     "workflow": build_workflow(
                         job_id=job.job_id,
-                        prompt=plan.prompt,
+                        prompt=beats[segment],
                         image_name=image_name,
                         width=self.width,
                         height=self.height,
                         seeds=seeds,
+                        prompt_suffix=f"-{segment + 1}" if plan.duration > SECONDS else "",
                     ),
                     "images": [{
                         "name": image_name,
@@ -324,7 +338,10 @@ class RunPodBackend(ComfyBackend):
                 frames=SECONDS * FPS + 1,
                 fps=FPS,
                 seeds=list(seeds),
-                prompt=plan.prompt,
+                segment=segment,
+                submission_pending_segment=segment,
+                segment_count=plan.duration // SECONDS,
+                prompt=beats[segment],
             )
 
             unknown = (
@@ -335,7 +352,7 @@ class RunPodBackend(ComfyBackend):
             try:
                 response = self._api("POST", "/run", json=payload, timeout=60)
             except httpx.RequestError:
-                job = job.model_copy(update={"message": unknown})
+                job = job.model_copy(update={"status": JobStatus.UNKNOWN, "message": unknown})
             else:
                 provider_id = None
                 if response.is_success:
@@ -348,12 +365,12 @@ class RunPodBackend(ComfyBackend):
                         "status": JobStatus.QUEUED,
                         "progress": 0,
                         "message": (
-                            "Queued on RunPod. A cold start adds a few minutes "
-                            "before rendering begins."
+                            f"Generating segment {segment + 1} of {plan.duration // SECONDS}."
                         ),
                     })
-                    self._record(job.job_id, provider_job_id=provider_id)
+                    self._record(job.job_id, provider_job_id=provider_id, submission_pending_segment=None)
                 elif 400 <= response.status_code < 500:
+                    self._record(job.job_id, submission_pending_segment=None)
                     job = job.model_copy(update={
                         "status": JobStatus.FAILED,
                         "message": (
@@ -363,7 +380,7 @@ class RunPodBackend(ComfyBackend):
                         ),
                     })
                 else:
-                    job = job.model_copy(update={"message": unknown})
+                    job = job.model_copy(update={"status": JobStatus.UNKNOWN, "message": unknown})
 
             self._save("jobs", job.job_id, job)
             return job
@@ -371,6 +388,16 @@ class RunPodBackend(ComfyBackend):
     def status(self, job_id: UUID) -> VideoJob:
         with self._lock:
             job = self._load("jobs", job_id, VideoJob)
+            record_path = self.root / "runpod" / f"{job.job_id}.json"
+            record = json.loads(record_path.read_text()) if record_path.is_file() else {}
+            recorded_provider = record.get("provider_job_id")
+            if recorded_provider and recorded_provider != job.provider_job_id and record.get("submission_pending_segment") is None:
+                job = job.model_copy(update={"provider_job_id": recorded_provider, "status": JobStatus.QUEUED, "message": "Resuming the next storyboard segment."})
+                self._save("jobs", job.job_id, job)
+            elif record.get("submission_pending_segment") is not None and int(record["submission_pending_segment"]) > 0:
+                job = job.model_copy(update={"status": JobStatus.UNKNOWN, "message": "A segment submission was interrupted. Check RunPod before retrying."})
+                self._save("jobs", job.job_id, job)
+                return job
             if job.status not in ACTIVE or not job.provider_job_id:
                 return job
 
@@ -491,7 +518,35 @@ class RunPodBackend(ComfyBackend):
                 f"{job.job_id}.unverified.mp4."
             )
 
-        self._write(self.root / "outputs" / f"{job.job_id}.mp4", content)
+        record_path = self.root / "runpod" / f"{job.job_id}.json"
+        record = json.loads(record_path.read_text())
+        segment = int(record.get("segment", 0))
+        count = job.plan.duration // SECONDS
+        if not 4.8 <= duration <= 5.3:
+            return failed(f"Segment {segment + 1} had unexpected duration {duration:.2f} s.")
+        if segment == 0 and count == 1:
+            self._write(self.root / "outputs" / f"{job.job_id}.mp4", content)
+        else:
+            segment_path = self.root / "outputs" / f"{job.job_id}-{segment}.mp4"
+            self._write(segment_path, content)
+            if segment + 1 < count:
+                if not shutil.which("ffmpeg"):
+                    return failed("ffmpeg is required to continue the storyboard.")
+                frame_path = self.root / "runpod" / f"{job.job_id}-{segment}.jpg"
+                try:
+                    subprocess.run(["ffmpeg", "-y", "-v", "error", "-sseof", "-0.1",
+                                    "-i", str(segment_path), "-frames:v", "1", str(frame_path)],
+                                   check=True, capture_output=True, timeout=60)
+                    frame = frame_path.read_bytes()
+                except (OSError, subprocess.SubprocessError) as exc:
+                    return failed(f"Could not prepare segment {segment + 2}: {exc}")
+                # The completed segment is durable before the next paid submission.
+                self._record(job.job_id, completed_segment=segment)
+                return self._submit_segment(job, frame, segment + 1)
+            try:
+                self._join_segments(job.job_id, count)
+            except (OSError, ValueError, struct.error, subprocess.SubprocessError) as exc:
+                return failed(f"Could not assemble the completed video: {exc}")
         waited = (data.get("delayTime") or 0) / 1000
         rendered = (data.get("executionTime") or 0) / 1000
         cost = (waited + rendered) * self.price_per_second
@@ -499,12 +554,29 @@ class RunPodBackend(ComfyBackend):
             "status": JobStatus.COMPLETED,
             "progress": 100,
             "message": (
-                f"Five-second video generated from the image is ready "
+                f"{job.plan.duration}-second video generated from the image is ready "
                 f"({width}x{height}, {duration:.2f} s). RunPod waited {waited:.0f} s "
                 f"for a worker and rendered for {rendered:.0f} s, at most about "
                 f"${cost:.2f} of GPU time."
             ),
         })
+
+    def _join_segments(self, job_id: UUID, count: int) -> None:
+        if not shutil.which("ffmpeg"):
+            raise OSError("ffmpeg is required to assemble the storyboard")
+        output = self.root / "outputs" / f"{job_id}.mp4"
+        command = ["ffmpeg", "-y", "-v", "error"]
+        for index in range(count):
+            command += ["-i", str(self.root / "outputs" / f"{job_id}-{index}.mp4")]
+        streams = "".join(f"[{index}:v:0]fps=24,trim=duration=5,setpts=PTS-STARTPTS[v{index}];" for index in range(count))
+        streams += "".join(f"[v{index}]" for index in range(count)) + f"concat=n={count}:v=1:a=0[out]"
+        command += ["-filter_complex", streams, "-map", "[out]", "-an", "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output)]
+        subprocess.run(command, check=True, capture_output=True, timeout=600)
+        checked = probe_mp4(output.read_bytes())
+        if abs(checked[0] - count * SECONDS) > 0.1:
+            output.unlink(missing_ok=True)
+            raise OSError("assembled video duration does not match the request")
 
     def cancel(self, job_id: UUID) -> VideoJob:
         with self._lock:

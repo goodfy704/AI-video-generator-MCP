@@ -109,7 +109,7 @@
             image.src = job.image_url;
             image.alt = job.image_name;
             image.loading = "lazy";
-            card.append(image, element("p", "message-prompt", job.prompt));
+            card.append(image, element("p", "message-prompt", `${job.prompt} · ${job.duration || 5} seconds`));
             const reply = element("div", "generation-reply");
             reply.append(element("span", "reply-mark", "✳"));
             const content = element("div", "reply-content");
@@ -186,6 +186,7 @@
         $("messages").hidden = true;
         $("welcome").hidden = false;
         prompt.value = "";
+        $("duration").value = "5";
         updateCount();
         removeImage();
         error();
@@ -215,6 +216,7 @@
             const body = new FormData();
             body.append("request_id", requestId);
             body.append("prompt", prompt.value.trim());
+            body.append("duration", $("duration").value);
             body.append("image", imageFile, imageFile.name || "pasted-image.png");
             const job = await api(`/api/conversations/${conversationId}/generate/`, { method: "POST", body });
             requestId = null;

@@ -84,6 +84,7 @@ class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     request_id: UUID = Field(default_factory=uuid4)
     prompt: str = Field(min_length=1, max_length=2000)
+    duration: Literal[5, 10, 15, 30] = 5
     image_base64: str | None = Field(default=None, max_length=MAX_BASE64_CHARS)
 
     @field_validator("prompt")
@@ -483,9 +484,17 @@ async def process_question(
         "Do not claim a video was made "
         "unless a successful tool result confirms it. Clearly label mock or demo "
         "videos. Poll queued or running jobs no more often than every five seconds. "
-        "Do not submit the same video twice. Use tool results to give your final answer."
+        "Do not submit the same video twice. Use tool results to give your final answer. "
+        "For create_video, use the requested duration exactly. For five seconds, "
+        "the original prompt is sufficient and story_beats may be omitted. For "
+        "longer videos, write one story_beats entry per five seconds, in "
+        "chronological order. Each entry describes a "
+        "continuous five-second action using the uploaded image for the first beat "
+        "and the previous beat's final frame for later beats. Preserve subject, "
+        "setting and style. Expand a short prompt through natural motion and pacing; "
+        "do not introduce unrelated characters or scenes."
     )
-    user_content = payload.prompt
+    user_content = f"Requested length: {payload.duration} seconds. Story: {payload.prompt}"
     if asset_id:
         user_content += (
             f"\n\nThe uploaded image is already registered with asset_id {asset_id}. "
@@ -540,6 +549,13 @@ async def process_question(
         if asset_id and decision.tool_name == "create_video":
             if nested_field(decision.arguments, "asset_id") != asset_id:
                 last_error = "Use the exact registered asset_id from the user message."
+                record_tool_reply(messages, decision, {"error": last_error})
+                continue
+            plan_args = decision.arguments.get("plan", decision.arguments)
+            beats = plan_args.get("story_beats", [])
+            beat_count_ok = len(beats) in (0, 1) if payload.duration == 5 else len(beats) == payload.duration // 5
+            if plan_args.get("duration", 5) != payload.duration or not beat_count_ok:
+                last_error = "Use the requested duration and one story beat per five seconds."
                 record_tool_reply(messages, decision, {"error": last_error})
                 continue
         if errors:
@@ -665,7 +681,7 @@ async def submit_request(payload: ChatRequest, request: Request):
         raise HTTPException(status_code=400, detail="Attach an image to generate a video.")
     await asyncio.to_thread(validate_image, payload.image_base64)
     image = base64.b64decode(payload.image_base64, validate=True)
-    fingerprint = hashlib.sha256(payload.prompt.encode() + b"\0" + image).hexdigest()
+    fingerprint = hashlib.sha256(payload.prompt.encode() + b"\0" + str(payload.duration).encode() + b"\0" + image).hexdigest()
     existing = saved_request(payload.request_id)
     if existing:
         if existing["fingerprint"] != fingerprint:

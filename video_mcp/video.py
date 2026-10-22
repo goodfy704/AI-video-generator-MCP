@@ -184,11 +184,15 @@ class ComfyBackend:
         return plan, asset, content
 
     def estimate(self, plan: GenerationPlan) -> VideoEstimate:
-        self.validate_plan(plan)
+        plan, _, _ = self.validate_plan(plan)
+        if plan.duration != 5:
+            raise VideoServiceError("This backend only supports five seconds.")
         return VideoEstimate()
 
     def create(self, plan: GenerationPlan) -> VideoJob:
         plan, asset, content = self.validate_plan(plan)
+        if plan.duration != 5:
+            raise VideoServiceError("This backend only supports five seconds.")
 
         health = self._request("GET", "/avg/health").json()
         if not health.get("ready") or health.get("preset") != PRESET:
@@ -374,6 +378,7 @@ class ComfyBackend:
 
         return VideoResult(
             job_id=job.job_id,
+            duration=job.plan.duration,
             video_path=str(path.resolve()),
             video_url=(
                 f"{self.public_url}/videos/{job.job_id}.mp4"
@@ -425,7 +430,9 @@ class DemoBackend(ComfyBackend):
             )
 
     def estimate(self, plan: GenerationPlan) -> VideoEstimate:
-        self.validate_plan(plan)
+        plan, _, _ = self.validate_plan(plan)
+        if plan.duration != 5:
+            raise VideoServiceError("The demo backend only supports five seconds.")
         self._validate_demo_file()
         return VideoEstimate(
             estimated_cost=0,
@@ -434,6 +441,8 @@ class DemoBackend(ComfyBackend):
 
     def create(self, plan: GenerationPlan) -> VideoJob:
         plan, _, _ = self.validate_plan(plan)
+        if plan.duration != 5:
+            raise VideoServiceError("The demo backend only supports five seconds.")
         self._validate_demo_file()
         job = VideoJob(
             job_id=uuid4(),

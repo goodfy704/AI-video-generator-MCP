@@ -167,6 +167,8 @@ The browser saves a queued job, then the separate worker validates your exported
 
 Image inputs: PNG, JPEG, or still WebP; up to 10 MiB; each dimension 64–4096 pixels. Inputs are decoded, orientation-corrected, stripped of metadata, and stored as RGB PNG. Transparency is flattened on white. Your workflow determines output shape, duration, frame rate, and model. The UI does not invent progress percentages.
 
+With the agent and RunPod backend, the studio offers 5, 10, 15, and 30 seconds. The agent turns one prompt into one five-second story beat per segment, and the RunPod backend renders them in order. Each later segment begins from the previous segment's final frame. The MCP host needs ffmpeg to extract those frames and assemble the final MP4. The local ComfyUI backend remains limited to its configured five-second workflow. A 30-second request uses six RunPod submissions and counts as six renders against the daily limit.
+
 The client reuses a request ID if a submission response is lost, preventing a normal retry from creating another job. If ComfyUI's acceptance cannot be determined, the job becomes `unknown` and is never automatically resubmitted. Known accepted jobs resume polling after worker restart. A stale interrupted submission becomes `unknown` after five minutes.
 
 For an unknown job, inspect ComfyUI's queue/history and find its accepted prompt ID. An admin can resume **polling only**, without submitting another render:

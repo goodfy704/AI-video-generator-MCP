@@ -39,6 +39,7 @@ def job_data(job):
     return {
         "id": str(job.id),
         "prompt": job.prompt,
+        "duration": job.duration,
         "status": job.status,
         "label": job.get_status_display(),
         "message": job.message,
@@ -57,6 +58,7 @@ def home(request):
         "studio/chat.html",
         {
             "workflow_ready": configured(),
+            "multi_duration": settings.GENERATION_BACKEND == "agent",
             "max_image_mb": settings.MAX_IMAGE_BYTES // 1048576,
         },
     )
@@ -110,16 +112,30 @@ def generate(request, conversation_id):
         return JsonResponse(
             {"error": "Invalid request ID. Please refresh the page."}, status=400
         )
-    existing = Generation.objects.filter(pk=identifier).first()
-    if existing:
-        if existing.conversation_id != conversation.id:
-            return JsonResponse({"error": "Request ID already used."}, status=409)
-        return JsonResponse(job_data(existing))
     prompt = request.POST.get("prompt", "").strip()
     if not 1 <= len(prompt) <= 2000:
         return JsonResponse(
             {"error": "Write a prompt between 1 and 2,000 characters."}, status=400
         )
+    duration_text = request.POST.get("duration", "")
+    try:
+        duration = int(duration_text)
+    except ValueError:
+        duration = None
+    if duration not in (5, 10, 15, 30) or str(duration) != duration_text:
+        return JsonResponse({"error": "Choose 5, 10, 15 or 30 seconds."}, status=400)
+    existing = Generation.objects.filter(pk=identifier).first()
+    if existing:
+        if existing.conversation_id != conversation.id:
+            return JsonResponse({"error": "Request ID already used."}, status=409)
+        if existing.duration != duration or existing.prompt != prompt:
+            return JsonResponse(
+                {"error": "This request was already used with a different prompt or duration. Start a new request."},
+                status=409,
+            )
+        return JsonResponse(job_data(existing))
+    if settings.GENERATION_BACKEND == "comfy" and duration != 5:
+        return JsonResponse({"error": "Longer videos require the RunPod agent backend."}, status=400)
     upload = request.FILES.get("image")
     if not upload:
         return JsonResponse(
@@ -139,6 +155,11 @@ def generate(request, conversation_id):
             if existing:
                 if existing.conversation_id != conversation.id:
                     return JsonResponse({"error": "Request ID already used."}, status=409)
+                if existing.duration != duration or existing.prompt != prompt:
+                    return JsonResponse(
+                        {"error": "This request was already used with a different prompt or duration. Start a new request."},
+                        status=409,
+                    )
                 return JsonResponse(job_data(existing))
             active = Generation.objects.filter(
                 conversation__owner=request.user,
@@ -156,6 +177,7 @@ def generate(request, conversation_id):
                 id=identifier,
                 conversation=conversation,
                 prompt=prompt,
+                duration=duration,
                 backend=settings.GENERATION_BACKEND,
                 image_key=key,
                 image_name=upload.name[:150],

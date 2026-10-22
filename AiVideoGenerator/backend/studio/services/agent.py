@@ -118,6 +118,7 @@ class AgentClient:
             json={
                 "request_id": str(job.pk),
                 "prompt": job.prompt,
+                "duration": job.duration,
                 "image_base64": base64.b64encode(content).decode(),
             },
         )

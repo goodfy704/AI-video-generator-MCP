@@ -38,6 +38,8 @@
                 <div id="attachment" class="attachment" hidden><img id="attachment-preview" alt="Attached image"><div><strong id="attachment-name"></strong><small>Starting frame</small></div><button id="remove-image" type="button" class="icon-button" aria-label="Remove image">×</button></div>
                 <label for="prompt" class="sr-only">Describe your video</label>
                 <textarea id="prompt" name="prompt" rows="2" maxlength="2000" placeholder="Describe your scene and how it moves…" required></textarea>
+                <label for="duration">Video length</label>
+                <select id="duration" name="duration" aria-label="Video length"><option value="5">5 seconds</option>{% if multi_duration %}<option value="10">10 seconds</option><option value="15">15 seconds</option><option value="30">30 seconds</option>{% endif %}</select>
                 <div class="composer-controls"><div class="composer-options"><button type="button" id="attach-button" class="attach-button"><span aria-hidden="true">+</span> Add image</button><span class="composer-divider"></span><span class="format-label">Image → Video</span></div><button type="submit" id="generate-button" class="primary-button generate-button">Generate <span aria-hidden="true">↑</span></button></div>
                 <input type="file" id="image-input" accept="image/png,image/jpeg,image/webp" hidden>
             </form>

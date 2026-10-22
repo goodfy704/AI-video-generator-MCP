@@ -13,6 +13,7 @@ Prompt = Annotated[
         max_length=2000,
     ),
 ]
+VideoDuration = Literal[5, 10, 15, 30]
 FiveSeconds = Annotated[int, Field(strict=True, ge=5, le=5)]
 
 
@@ -33,15 +34,24 @@ class GenerationPlan(Contract):
     asset_id: UUID
     prompt: Prompt
     model: Literal["ltx-2-5-fast"] = "ltx-2-5-fast"
-    duration: FiveSeconds = 5
+    duration: VideoDuration = 5
+    story_beats: list[Prompt] = Field(default_factory=list, max_length=6)
     aspect_ratio: Literal["16:9"] = "16:9"
     audio: Literal["silent"] = "silent"
 
     @field_validator("duration", mode="before")
     @classmethod
     def validate_duration_type(cls, value: object) -> int:
-        if type(value) is not int or value != 5:
-            raise ValueError("duration must be the integer 5.")
+        if type(value) is not int or value not in (5, 10, 15, 30):
+            raise ValueError("duration must be one of 5, 10, 15 or 30 seconds.")
+        return value
+
+    @field_validator("story_beats")
+    @classmethod
+    def validate_beats(cls, value: list[str], info) -> list[str]:
+        duration = info.data.get("duration", 5)
+        if (value or duration > 5) and len(value) != duration // 5:
+            raise ValueError("story_beats must contain one beat per five seconds.")
         return value
 
 
@@ -49,8 +59,8 @@ class VideoEstimate(Contract):
     currency: Literal["USD"] = "USD"
     estimated_cost: float = 0.54
     # The LTX API bills a 6-second minimum; self-hosted renders exactly 5 s.
-    generated_seconds: Literal[5, 6] = 6
-    delivered_seconds: Literal[5] = 5
+    generated_seconds: int = 6
+    delivered_seconds: VideoDuration = 5
     basis: str = "LTX direct API, 720p; excludes taxes."
 
 
@@ -79,7 +89,7 @@ class VideoJob(Contract):
 class VideoResult(Contract):
     job_id: UUID
     status: Literal["completed"] = "completed"
-    duration: FiveSeconds = 5
+    duration: VideoDuration = 5
     aspect_ratio: Literal["16:9"] = "16:9"
     video_path: str
     video_url: str | None = None
